@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { buildChatRequest, newId, type AssistantMessage, type ChatMessage } from '../lib/chat'
+import { appendReply, buildChatRequest, newId, type AssistantMessage, type ChatMessage } from '../lib/chat'
 import { createChatCompletion } from '../lib/openrouter'
 import { useActiveModelId, useApiKey, useMessages, useSelectedModels } from '../lib/storage'
 import { parseReply } from '../lib/structured'
@@ -12,7 +12,7 @@ export default function ChatPage({ hidden }: { hidden: boolean }) {
   const [draft, setDraft] = useState('')
   const [pendingModel, setPendingModel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
+  const inflightRef = useRef<{ controller: AbortController; answering?: string } | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   const activeModel = models.find((m) => m.id === activeId) ?? models[0]
@@ -25,10 +25,18 @@ export default function ChatPage({ hidden }: { hidden: boolean }) {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
   }, [messages.length, pending, error])
 
+  // Drop an in-flight request once the message it answers is gone
+  // (New chat, "Forget everything", or a clear from another tab).
+  useEffect(() => {
+    const answering = inflightRef.current?.answering
+    if (answering && !messages.some((m) => m.id === answering)) inflightRef.current?.controller.abort()
+  }, [messages])
+
   async function requestReply(history: ChatMessage[]) {
     if (!activeModel) return
     const controller = new AbortController()
-    abortRef.current = controller
+    const answering = history.at(-1)?.id
+    inflightRef.current = { controller, answering }
     setPendingModel(activeModel.id)
     setError(null)
     try {
@@ -44,12 +52,12 @@ export default function ChatPage({ hidden }: { hidden: boolean }) {
         model: activeModel.id,
         ...parseReply(raw),
       }
-      setMessages((prev) => [...prev, reply])
+      setMessages((prev) => appendReply(prev, answering, reply))
     } catch (err) {
       if (!controller.signal.aborted) setError(err instanceof Error ? err.message : String(err))
     } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null
+      if (inflightRef.current?.controller === controller) {
+        inflightRef.current = null
         setPendingModel(null)
       }
     }
@@ -65,7 +73,7 @@ export default function ChatPage({ hidden }: { hidden: boolean }) {
   }
 
   function stop() {
-    abortRef.current?.abort()
+    inflightRef.current?.controller.abort()
   }
 
   function newChat() {

@@ -24,6 +24,18 @@ export function newId(): string {
   return crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
+/**
+ * Append a reply only while the message it answers is still in the chat, so a
+ * late reply can't resurrect a conversation that was cleared or forgotten.
+ */
+export function appendReply(
+  messages: ChatMessage[],
+  answering: string | undefined,
+  reply: AssistantMessage,
+): ChatMessage[] {
+  return messages.some((m) => m.id === answering) ? [...messages, reply] : messages
+}
+
 export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
   return [
     { role: 'system', content: SYSTEM_PROMPT },

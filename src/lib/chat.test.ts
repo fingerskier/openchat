@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildChatRequest, type ChatMessage } from './chat'
+import { appendReply, buildChatRequest, type AssistantMessage, type ChatMessage } from './chat'
 import type { ModelInfo } from './openrouter'
 import { SYSTEM_PROMPT } from './structured'
 
@@ -36,5 +36,19 @@ describe('buildChatRequest', () => {
       response_format: { type: 'json_schema' },
       provider: { require_parameters: true },
     })
+  })
+})
+
+describe('appendReply', () => {
+  const reply: AssistantMessage = { id: 'r', role: 'assistant', model: 'm', response: 'late', flowPrompts: [], wellFormed: true }
+
+  it('appends while the answered message is still present', () => {
+    expect(appendReply(history, '3', reply)).toEqual([...history, reply])
+  })
+
+  it('drops a late reply to a cleared conversation without writing anything new', () => {
+    const cleared: ChatMessage[] = []
+    expect(appendReply(cleared, '3', reply)).toBe(cleared)
+    expect(appendReply(cleared, undefined, reply)).toBe(cleared)
   })
 })
