@@ -33,6 +33,13 @@ npm run dev        # http://localhost:5173
 
 Other scripts: `npm test` (unit tests), `npm run typecheck`, `npm run build` (static site in `dist/`, deployable to any static host; routing is hash-based and asset paths are relative).
 
+## Deploy
+
+`.github/workflows/pages.yml` tests, builds and publishes to GitHub Pages on every push to `main`. You can also run it by hand from the Actions tab.
+The app is served at `https://<owner>.github.io/<repo>/`.
+
+One-time setup: in the repo, go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
+
 ## How it works
 
 * **No backend.** The browser calls `https://openrouter.ai/api/v1` directly. The API key, model set, active model and current chat are stored in `localStorage` under `openchat.*`. **Settings → Forget everything** wipes them.
