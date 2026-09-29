@@ -6,6 +6,8 @@ export interface ModelInfo {
   id: string
   name: string
   contextLength: number | null
+  /** Longest reply the top provider allows, when advertised. */
+  maxCompletionTokens: number | null
   /** USD per million tokens. */
   promptPrice: number | null
   completionPrice: number | null
@@ -27,6 +29,7 @@ export interface ApiMessage {
 export interface ChatRequest {
   model: string
   messages: ApiMessage[]
+  max_tokens?: number
   response_format?: Record<string, unknown>
   provider?: { require_parameters: boolean }
 }
@@ -77,7 +80,14 @@ export async function createChatCompletion(
 
   const choice = asRecord(Array.isArray(root?.choices) ? root.choices[0] : undefined)
   const content = messageText(asRecord(choice?.message)?.content)
-  if (!content) throw new OpenRouterError('The model returned an empty reply.', 502)
+  if (!content) {
+    throw new OpenRouterError(
+      choice?.finish_reason === 'length'
+        ? 'The model used up its output budget before replying (likely on reasoning). Try again or pick another model.'
+        : 'The model returned an empty reply.',
+      502,
+    )
+  }
   return content
 }
 
@@ -100,6 +110,7 @@ export function parseModels(body: unknown): ModelInfo[] {
       id: r.id,
       name: typeof r.name === 'string' && r.name ? r.name : r.id,
       contextLength: toNumber(r.context_length),
+      maxCompletionTokens: toNumber(asRecord(r.top_provider)?.max_completion_tokens),
       promptPrice: perMillion(pricing?.prompt),
       completionPrice: perMillion(pricing?.completion),
       structured: params.includes('structured_outputs')

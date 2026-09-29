@@ -19,6 +19,14 @@ export interface AssistantMessage {
 
 export type ChatMessage = UserMessage | AssistantMessage
 
+/**
+ * Output budget per reply. Without it OpenRouter prices each request at the
+ * model's full output ceiling (often 32k+ tokens) and answers 402 when the
+ * key's remaining limit or the account balance can't cover that worst case.
+ * A brief reply needs a few hundred tokens; the rest is headroom for reasoning.
+ */
+export const MAX_REPLY_TOKENS = 4096
+
 export function newId(): string {
   // randomUUID only exists in secure contexts; plain-http LAN dev servers lack it.
   return crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -48,11 +56,30 @@ export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
   ]
 }
 
+/**
+ * MAX_REPLY_TOKENS, shrunk to fit the model's completion cap and whatever
+ * context the prompt leaves. When the prompt alone overflows, the provider's
+ * context error is more useful than a clipped reply, so this bottoms out at 1.
+ */
+export function replyBudget(model: ModelInfo, prompt: ApiMessage[]): number {
+  // Unknown (null, 0, or absent on models stored before the field existed) means uncapped.
+  const completionCap = model.maxCompletionTokens || Infinity
+  const room = model.contextLength ? model.contextLength - estimateTokens(prompt) : Infinity
+  return Math.max(1, Math.min(MAX_REPLY_TOKENS, completionCap, room))
+}
+
+/** Pessimistic (~3 chars per token plus per-message overhead) so the budget errs small. */
+function estimateTokens(messages: ApiMessage[]): number {
+  return messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 3) + 4, 0)
+}
+
 export function buildChatRequest(model: ModelInfo, messages: ChatMessage[]): ChatRequest {
   const responseFormat = responseFormatFor(model.structured)
+  const prompt = toApiMessages(messages)
   return {
     model: model.id,
-    messages: toApiMessages(messages),
+    messages: prompt,
+    max_tokens: replyBudget(model, prompt),
     ...(responseFormat && {
       response_format: responseFormat,
       // Route only to providers that honor response_format for this model.
