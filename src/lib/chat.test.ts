@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendReply, buildChatRequest, type AssistantMessage, type ChatMessage } from './chat'
+import { MAX_REPLY_TOKENS, appendReply, buildChatRequest, type AssistantMessage, type ChatMessage } from './chat'
 import type { ModelInfo } from './openrouter'
 import { SYSTEM_PROMPT } from './structured'
 
@@ -28,6 +28,11 @@ describe('buildChatRequest', () => {
       { role: 'assistant', content: '{"response":"Hi","flow_prompts":["p"]}' },
       { role: 'user', content: 'Next' },
     ])
+  })
+
+  it('caps the output budget so OpenRouter does not reserve the model maximum', () => {
+    expect(buildChatRequest(model('none'), history).max_tokens).toBe(MAX_REPLY_TOKENS)
+    expect(buildChatRequest(model('json_schema'), history).max_tokens).toBe(MAX_REPLY_TOKENS)
   })
 
   it('only constrains providers when a response_format is sent', () => {

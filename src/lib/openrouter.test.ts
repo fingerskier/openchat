@@ -72,6 +72,9 @@ describe('createChatCompletion', () => {
 
     stubFetch(200, { choices: [{ message: { content: '' } }] })
     await expect(createChatCompletion('k', payload)).rejects.toThrow('empty reply')
+
+    stubFetch(200, { choices: [{ message: { content: null }, finish_reason: 'length' }] })
+    await expect(createChatCompletion('k', payload)).rejects.toThrow('output budget')
   })
 })
 

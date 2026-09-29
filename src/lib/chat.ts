@@ -19,6 +19,14 @@ export interface AssistantMessage {
 
 export type ChatMessage = UserMessage | AssistantMessage
 
+/**
+ * Output budget per reply. Without it OpenRouter prices each request at the
+ * model's full output ceiling (often 32k+ tokens) and answers 402 when the
+ * key's remaining limit or the account balance can't cover that worst case.
+ * A brief reply needs a few hundred tokens; the rest is headroom for reasoning.
+ */
+export const MAX_REPLY_TOKENS = 4096
+
 export function newId(): string {
   // randomUUID only exists in secure contexts; plain-http LAN dev servers lack it.
   return crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -53,6 +61,7 @@ export function buildChatRequest(model: ModelInfo, messages: ChatMessage[]): Cha
   return {
     model: model.id,
     messages: toApiMessages(messages),
+    max_tokens: MAX_REPLY_TOKENS,
     ...(responseFormat && {
       response_format: responseFormat,
       // Route only to providers that honor response_format for this model.

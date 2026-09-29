@@ -27,6 +27,7 @@ export interface ApiMessage {
 export interface ChatRequest {
   model: string
   messages: ApiMessage[]
+  max_tokens?: number
   response_format?: Record<string, unknown>
   provider?: { require_parameters: boolean }
 }
@@ -77,7 +78,14 @@ export async function createChatCompletion(
 
   const choice = asRecord(Array.isArray(root?.choices) ? root.choices[0] : undefined)
   const content = messageText(asRecord(choice?.message)?.content)
-  if (!content) throw new OpenRouterError('The model returned an empty reply.', 502)
+  if (!content) {
+    throw new OpenRouterError(
+      choice?.finish_reason === 'length'
+        ? 'The model used up its output budget before replying (likely on reasoning). Try again or pick another model.'
+        : 'The model returned an empty reply.',
+      502,
+    )
+  }
   return content
 }
 
