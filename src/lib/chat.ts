@@ -56,12 +56,30 @@ export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
   ]
 }
 
+/**
+ * MAX_REPLY_TOKENS, shrunk to fit the model's completion cap and whatever
+ * context the prompt leaves. When the prompt alone overflows, the provider's
+ * context error is more useful than a clipped reply, so this bottoms out at 1.
+ */
+export function replyBudget(model: ModelInfo, prompt: ApiMessage[]): number {
+  // Unknown (null, 0, or absent on models stored before the field existed) means uncapped.
+  const completionCap = model.maxCompletionTokens || Infinity
+  const room = model.contextLength ? model.contextLength - estimateTokens(prompt) : Infinity
+  return Math.max(1, Math.min(MAX_REPLY_TOKENS, completionCap, room))
+}
+
+/** Pessimistic (~3 chars per token plus per-message overhead) so the budget errs small. */
+function estimateTokens(messages: ApiMessage[]): number {
+  return messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 3) + 4, 0)
+}
+
 export function buildChatRequest(model: ModelInfo, messages: ChatMessage[]): ChatRequest {
   const responseFormat = responseFormatFor(model.structured)
+  const prompt = toApiMessages(messages)
   return {
     model: model.id,
-    messages: toApiMessages(messages),
-    max_tokens: MAX_REPLY_TOKENS,
+    messages: prompt,
+    max_tokens: replyBudget(model, prompt),
     ...(responseFormat && {
       response_format: responseFormat,
       // Route only to providers that honor response_format for this model.

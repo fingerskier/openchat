@@ -17,6 +17,7 @@ describe('parseModels', () => {
           id: 'a/strict',
           name: 'Strict',
           context_length: 128000,
+          top_provider: { max_completion_tokens: 16384 },
           pricing: { prompt: '0.000001', completion: '0.000002' },
           supported_parameters: ['structured_outputs', 'response_format'],
           architecture: { output_modalities: ['text'] },
@@ -29,8 +30,8 @@ describe('parseModels', () => {
     })
 
     expect(models).toEqual([
-      { id: 'a/strict', name: 'Strict', contextLength: 128000, promptPrice: 1, completionPrice: 2, structured: 'json_schema' },
-      { id: 'b/json', name: 'b/json', contextLength: null, promptPrice: null, completionPrice: null, structured: 'json_object' },
+      { id: 'a/strict', name: 'Strict', contextLength: 128000, maxCompletionTokens: 16384, promptPrice: 1, completionPrice: 2, structured: 'json_schema' },
+      { id: 'b/json', name: 'b/json', contextLength: null, maxCompletionTokens: null, promptPrice: null, completionPrice: null, structured: 'json_object' },
     ])
   })
 

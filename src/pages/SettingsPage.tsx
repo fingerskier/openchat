@@ -160,7 +160,7 @@ function ModelsSection() {
     if (!id || selectedIds.has(id)) return
     const known = catalog?.find((m) => m.id === id)
     toggle(
-      known ?? { id, name: id, contextLength: null, promptPrice: null, completionPrice: null, structured: 'none' },
+      known ?? { id, name: id, contextLength: null, maxCompletionTokens: null, promptPrice: null, completionPrice: null, structured: 'none' },
     )
     setCustomId('')
   }

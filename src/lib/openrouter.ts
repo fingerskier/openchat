@@ -6,6 +6,8 @@ export interface ModelInfo {
   id: string
   name: string
   contextLength: number | null
+  /** Longest reply the top provider allows, when advertised. */
+  maxCompletionTokens: number | null
   /** USD per million tokens. */
   promptPrice: number | null
   completionPrice: number | null
@@ -108,6 +110,7 @@ export function parseModels(body: unknown): ModelInfo[] {
       id: r.id,
       name: typeof r.name === 'string' && r.name ? r.name : r.id,
       contextLength: toNumber(r.context_length),
+      maxCompletionTokens: toNumber(asRecord(r.top_provider)?.max_completion_tokens),
       promptPrice: perMillion(pricing?.prompt),
       completionPrice: perMillion(pricing?.completion),
       structured: params.includes('structured_outputs')
